@@ -310,14 +310,26 @@ export class GarageView {
       this.carMesh.chassisGroup.position.y = 0;
     }
 
-    // Offset lookAt slightly on wide desktop screens in garage mode so car frames beside side panel
-    const isWideDesktop = window.innerWidth >= 960;
-    const rightShift = this.framing === 'garage' && isWideDesktop ? 1.55 : 0;
-    const verticalOffset = this.framing === 'garage' && !isWideDesktop ? 0.45 : 0.95;
+    // Frame the 3D car cleanly beside UI panels on desktop AND mobile landscape
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const isShortLandscape = isLandscape && window.innerHeight <= 540;
+    const isSidePanel = window.innerWidth >= 960 || isLandscape;
 
-    const camX = Math.sin(this.azimuth) * Math.cos(this.elevation) * this.distance;
-    const camY = Math.sin(this.elevation) * this.distance + 0.95;
-    const camZ = Math.cos(this.azimuth) * Math.cos(this.elevation) * this.distance;
+    let rightShift = 0;
+    if (this.framing === 'garage' && isSidePanel) {
+      // Shift lookAt right so the car sits in the open left 3D showcase area
+      rightShift = isShortLandscape ? 1.85 : 1.55;
+    } else if (this.framing === 'menu' && isShortLandscape) {
+      // Shift lookAt left so the car stands out cleanly on the right beside Main Menu card
+      rightShift = -1.55;
+    }
+
+    const verticalOffset = this.framing === 'garage' && !isSidePanel ? 0.45 : 0.92;
+    const effectiveDist = isShortLandscape ? this.distance * 1.12 : this.distance;
+
+    const camX = Math.sin(this.azimuth) * Math.cos(this.elevation) * effectiveDist;
+    const camY = Math.sin(this.elevation) * effectiveDist + 0.92;
+    const camZ = Math.cos(this.azimuth) * Math.cos(this.elevation) * effectiveDist;
 
     // Shift perpendicular to camera view direction for clean asymmetric showroom composition
     const sideX = Math.cos(this.azimuth) * rightShift;

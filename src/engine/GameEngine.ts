@@ -19,6 +19,7 @@ import {
   GarageUI,
   HUD,
   MainMenu,
+  OrientationGuard,
   TouchControls,
   type TouchVisibilityMode,
 } from '../ui';
@@ -90,6 +91,7 @@ export class GameEngine {
   private readonly tacticalMap: TacticalMap;
   private readonly touchControls: TouchControls;
   private readonly hud: HUD;
+  private readonly orientationGuard: OrientationGuard;
   private readonly transitionVeil: HTMLDivElement;
 
   private screen: AppScreen = 'menu';
@@ -103,6 +105,7 @@ export class GameEngine {
 
   private transitioning = false;
   private transitionTimerId: number | null = null;
+  private orientationTimerId: number | null = null;
 
   private rafId: number | null = null;
   private lastTimeMs = 0;
@@ -112,6 +115,7 @@ export class GameEngine {
   private disposed = false;
 
   private readonly onResizeBound: () => void;
+  private readonly onOrientationChangeBound: () => void;
   private readonly onVisibilityChangeBound: () => void;
   private readonly onWindowBlurBound: () => void;
 
@@ -283,6 +287,8 @@ export class GameEngine {
       onAudioUnlockPrompt: () => this.unlockAudio(),
     });
 
+    this.orientationGuard = new OrientationGuard(container);
+
     this.transitionVeil = document.createElement('div');
     this.transitionVeil.className = 'screen-transition-veil';
     container.appendChild(this.transitionVeil);
@@ -305,9 +311,19 @@ export class GameEngine {
     this.applyScreenImmediate('menu');
 
     this.onResizeBound = () => this.handleResize();
+    this.onOrientationChangeBound = () => {
+      this.handleResize();
+      if (this.orientationTimerId !== null) window.clearTimeout(this.orientationTimerId);
+      this.orientationTimerId = window.setTimeout(() => {
+        this.handleResize();
+        this.orientationTimerId = null;
+      }, 140);
+    };
     this.onVisibilityChangeBound = () => this.handleVisibilityChange();
     this.onWindowBlurBound = () => this.handleFocusLoss();
     window.addEventListener('resize', this.onResizeBound);
+    window.addEventListener('orientationchange', this.onOrientationChangeBound);
+    window.visualViewport?.addEventListener('resize', this.onResizeBound);
     document.addEventListener('visibilitychange', this.onVisibilityChangeBound);
     window.addEventListener('blur', this.onWindowBlurBound);
   }
@@ -991,7 +1007,12 @@ export class GameEngine {
     if (this.transitionTimerId !== null) {
       window.clearTimeout(this.transitionTimerId);
     }
+    if (this.orientationTimerId !== null) {
+      window.clearTimeout(this.orientationTimerId);
+    }
     window.removeEventListener('resize', this.onResizeBound);
+    window.removeEventListener('orientationchange', this.onOrientationChangeBound);
+    window.visualViewport?.removeEventListener('resize', this.onResizeBound);
     document.removeEventListener('visibilitychange', this.onVisibilityChangeBound);
     window.removeEventListener('blur', this.onWindowBlurBound);
 
@@ -1003,6 +1024,7 @@ export class GameEngine {
     this.tacticalMap.dispose();
     this.touchControls.dispose();
     this.hud.dispose();
+    this.orientationGuard.dispose();
     this.transitionVeil.remove();
     this.audio.dispose();
     this.gadgets.dispose();
